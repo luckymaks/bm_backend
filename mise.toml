@@ -1,0 +1,10 @@
+[tools]
+go = "latest"
+golangci-lint = "latest"
+shellcheck = "latest"
+shfmt = "latest"
+terraform = "latest"
+yamlfmt = "latest"
+buf = "latest"
+cfn-lint = "latest"
+aws-cli = "latest"
