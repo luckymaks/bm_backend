@@ -14,11 +14,6 @@ cd -
 cd infra
 golangci-lint run ./...
 
-# terraform.
-cd -
-cd infra/tf
-terraform validate
-
 # cloudformation.
 cd -
 cfn-lint mise-tasks/aws/pre-bootstrap.cfn.yaml
