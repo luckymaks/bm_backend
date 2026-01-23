@@ -1,0 +1,13 @@
+{
+  "kn-primary-region": "eu-central-1",
+  "cli-telemetry": false,
+  "kn-deployments": ["dev"],
+  "kn-qualifier": "kndr",
+  "kn-base-domain-name": "",
+  "kn-region-ident-eu-central-1": "De",
+  "kn-region-ident-ap-southeast-1": "Si",
+  "acknowledged-issue-numbers": [34892],
+  "@aws-cdk/core:permissionsBoundary": {
+    "name": "kndr-permissions-boundary"
+  }
+}

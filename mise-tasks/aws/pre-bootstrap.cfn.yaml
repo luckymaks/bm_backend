@@ -438,16 +438,13 @@ Resources:
               - iam:DeleteUserPermissionsBoundary
               - iam:DeleteRolePermissionsBoundary
             Resource: "*"
-  # Main secret for storing sensitive configuration, replicated to secondary regions. The content
-  # of this secret usually is setup by hand.
+  # Main secret for storing sensitive configuration. The content of this secret usually is setup by hand.
   MainSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub "${Qualifier}/main-secret"
       Description: Main secret for the project
       SecretString: "{}"
-      ReplicaRegions:
-        - Region: !Select [0, !Ref SecondaryRegions]
   # GitHub OIDC provider for GitHub Actions authentication
   GitHubOIDCProvider:
     Type: AWS::IAM::OIDCProvider
