@@ -1,7 +1,7 @@
 {
   "kn-primary-region": "eu-central-1",
   "cli-telemetry": false,
-  "kn-deployments": ["dev"],
+  "kn-deployments": ["Dev", "DevAdmin", "Prod", "Stag"],
   "kn-qualifier": "kndr",
   "kn-base-domain-name": "",
   "kn-region-ident-eu-central-1": "De",

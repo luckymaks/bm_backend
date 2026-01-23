@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscertificatemanager"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscognito"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsroute53"
+	"github.com/luckymaks/bm_backend/infra/aws/awsapi"
 )
 
 type DeploymentProps struct {
@@ -15,10 +16,24 @@ type DeploymentProps struct {
 	CrewIdentity    awscognito.UserPool
 }
 
-type Deployment interface{}
+type Deployment interface {
+	Api() awsapi.Api
+}
 
-type deployment struct{}
+type deployment struct {
+	api awsapi.Api
+}
 
 func NewDeployment(stack awscdk.Stack, props DeploymentProps) Deployment {
-	return &deployment{}
+	api := awsapi.NewApi(stack, awsapi.ApiProps{
+		DeploymentIdent: props.DeploymentIdent,
+	})
+
+	return &deployment{
+		api: api,
+	}
+}
+
+func (d *deployment) Api() awsapi.Api {
+	return d.api
 }

@@ -2,10 +2,26 @@ package main
 
 import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awscertificatemanager"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsroute53"
 	"github.com/aws/jsii-runtime-go"
 	"github.com/luckymaks/bm_backend/infra/aws"
 	"github.com/luckymaks/bm_backend/infra/aws/cdk/cdkutil"
 )
+
+func getHostedZone(s aws.Shared) awsroute53.IHostedZone {
+	if s.DNS() == nil {
+		return nil
+	}
+	return s.DNS().HostedZone()
+}
+
+func getCertificate(s aws.Shared) awscertificatemanager.ICertificate {
+	if s.Certificate() == nil {
+		return nil
+	}
+	return s.Certificate().WildcardCertificate()
+}
 
 func main() {
 	defer jsii.Close()
@@ -28,8 +44,8 @@ func main() {
 		primaryDeploymentStack := cdkutil.NewStack(app, cdkutil.PrimaryRegion(app), deploymentIdent)
 		aws.NewDeployment(primaryDeploymentStack, aws.DeploymentProps{
 			DeploymentIdent: jsii.String(deploymentIdent),
-			HostedZone:      primary.DNS().HostedZone(),
-			Certificate:     primary.Certificate().WildcardCertificate(),
+			HostedZone:      getHostedZone(primary),
+			Certificate:     getCertificate(primary),
 			Identity:        primary.Identity(),
 			CrewIdentity:    primary.CrewIdentity(),
 		})
@@ -40,8 +56,8 @@ func main() {
 			secondaryDeploymentStack := cdkutil.NewStack(app, region, deploymentIdent)
 			aws.NewDeployment(secondaryDeploymentStack, aws.DeploymentProps{
 				DeploymentIdent: jsii.String(deploymentIdent),
-				HostedZone:      secondaries[region].DNS().HostedZone(),
-				Certificate:     secondaries[region].Certificate().WildcardCertificate(),
+				HostedZone:      getHostedZone(secondaries[region]),
+				Certificate:     getCertificate(secondaries[region]),
 				Identity:        secondaries[region].Identity(),
 				CrewIdentity:    secondaries[region].CrewIdentity(),
 			})
