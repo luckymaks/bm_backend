@@ -1,0 +1,505 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Pre-CDK-Bootstrap resources
+Parameters:
+  Qualifier:
+    Type: String
+    Description: The CDK bootstrap qualifier
+  SecondaryRegions:
+    Type: CommaDelimitedList
+    Description: Comma-separated list of secondary regions for secret replication
+    Default: ""
+Resources:
+  # The policy describing what the deployer calling the CDK cli is allowed to do. It should allow
+  # assuming the cdk roles.
+  DeployerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${Qualifier}-deployer-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AssumeBootstrapRoles
+            Effect: Allow
+            Action: sts:AssumeRole
+            Resource: !Sub arn:aws:iam::*:role/cdk-${Qualifier}-*
+          - Sid: DescribeBootstrapStack
+            Effect: Allow
+            Action: cloudformation:DescribeStacks
+            Resource: "*"
+          - Sid: HotswapSupport
+            Effect: Allow
+            Action:
+              - cloudformation:GetTemplate
+              - cloudformation:ListStackResources
+            Resource: !Sub "arn:aws:cloudformation:*:${AWS::AccountId}:stack/${Qualifier}*/*"
+          - Sid: HotswapLambda
+            Effect: Allow
+            Action:
+              - lambda:UpdateFunctionCode
+              - lambda:GetFunction
+              - lambda:InvokeFunction
+            Resource: "*"
+          - Sid: HotswapS3Assets
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub "arn:aws:s3:::cdk-${Qualifier}-assets-${AWS::AccountId}-*/*"
+          - Sid: SSMParameterRead
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/${Qualifier}/*"
+          - Sid: ListOwnGroups
+            Effect: Allow
+            Action:
+              - iam:ListGroupsForUser
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+          - Sid: SSMReadAppParameters
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/${Qualifier}/*"
+  # The group that full deployers belong to (can deploy all environments including Stag/Prod).
+  DeployerGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub "${Qualifier}-deployers"
+      ManagedPolicyArns:
+        - !Ref DeployerPolicy
+  # The group for dev deployers (same permissions, but CDK logic prevents Stag/Prod deploys).
+  DevDeployerGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub "${Qualifier}-dev-deployers"
+      ManagedPolicyArns:
+        - !Ref DeployerPolicy
+  # Policy for developer admins to debug issues in the AWS console (read-only access).
+  DeveloperAdminPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${Qualifier}-developer-admin-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: LambdaReadDebug
+            Effect: Allow
+            Action:
+              - lambda:Get*
+              - lambda:List*
+            Resource: "*"
+          - Sid: CognitoReadDebug
+            Effect: Allow
+            Action:
+              - cognito-idp:Describe*
+              - cognito-idp:List*
+              - cognito-idp:Get*
+              - cognito-idp:AdminGetUser
+              - cognito-idp:AdminListGroupsForUser
+            Resource: "*"
+          - Sid: CloudWatchLogsReadDebug
+            Effect: Allow
+            Action:
+              - logs:Describe*
+              - logs:Get*
+              - logs:List*
+              - logs:StartQuery
+              - logs:StopQuery
+              - logs:FilterLogEvents
+            Resource: "*"
+          - Sid: DynamoDBReadDebug
+            Effect: Allow
+            Action:
+              - dynamodb:Describe*
+              - dynamodb:List*
+              - dynamodb:GetItem
+              - dynamodb:BatchGetItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource: "*"
+          - Sid: ApplicationAutoScalingReadDebug
+            Effect: Allow
+            Action:
+              - application-autoscaling:Describe*
+              - application-autoscaling:List*
+            Resource: "*"
+          - Sid: CloudWatchMetricsReadDebug
+            Effect: Allow
+            Action:
+              - cloudwatch:Describe*
+              - cloudwatch:Get*
+              - cloudwatch:List*
+            Resource: "*"
+          - Sid: ServiceCatalogReadDebug
+            Effect: Allow
+            Action:
+              - servicecatalog:Describe*
+              - servicecatalog:Get*
+              - servicecatalog:List*
+              - servicecatalog:Search*
+            Resource: "*"
+          - Sid: GeneralReadDebug
+            Effect: Allow
+            Action:
+              - tag:Get*
+              - resource-groups:Get*
+              - resource-groups:List*
+              - resource-groups:Search*
+              - ce:Get*
+              - ce:Describe*
+              - health:Describe*
+            Resource: "*"
+          - Sid: Route53ReadDebug
+            Effect: Allow
+            Action:
+              - route53:Get*
+              - route53:List*
+              - route53domains:Get*
+              - route53domains:List*
+            Resource: "*"
+          - Sid: SSMReadDebug
+            Effect: Allow
+            Action:
+              - ssm:Describe*
+              - ssm:Get*
+              - ssm:List*
+            Resource: "*"
+          - Sid: SecretsManagerReadDebug
+            Effect: Allow
+            Action:
+              - secretsmanager:DescribeSecret
+              - secretsmanager:GetSecretValue
+              - secretsmanager:ListSecrets
+              - secretsmanager:ListSecretVersionIds
+              - secretsmanager:GetResourcePolicy
+              - secretsmanager:BatchGetSecretValue
+            Resource: "*"
+  # The group for developer admins (read-only debug access to Lambda, Cognito, CloudWatch, DynamoDB).
+  DeveloperAdminGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub "${Qualifier}-developer-admins"
+      ManagedPolicyArns:
+        - !Ref DeveloperAdminPolicy
+  # The Cloudformation execution rule used by the CDK. This actual defines what the CDK deployer is
+  # allowed to create.
+  ExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${Qualifier}-execution-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CDKMetadata
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/cdk-bootstrap/${Qualifier}/*"
+          # Allow management of application SSM parameters
+          - Sid: SSMParameterManagement
+            Effect: Allow
+            Action:
+              - ssm:PutParameter
+              - ssm:DeleteParameter
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:AddTagsToResource
+              - ssm:RemoveTagsFromResource
+              - ssm:ListTagsForResource
+            Resource: !Sub "arn:aws:ssm:*:${AWS::AccountId}:parameter/${Qualifier}/*"
+          # Below is for ECR with cross-region replication.
+          - Sid: ECRFullAccess
+            Effect: Allow
+            Action:
+              - ecr:*
+            Resource: "*"
+          - Sid: ECRServiceLinkedRole
+            Effect: Allow
+            Action:
+              - iam:CreateServiceLinkedRole
+            Resource: "arn:aws:iam::*:role/aws-service-role/replication.ecr.amazonaws.com/*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName: replication.ecr.amazonaws.com
+          - Sid: APIGatewayServiceLinkedRole
+            Effect: Allow
+            Action:
+              - iam:CreateServiceLinkedRole
+            Resource: "arn:aws:iam::*:role/aws-service-role/ops.apigateway.amazonaws.com/*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName: ops.apigateway.amazonaws.com
+          # Allow management of CloudWatch Log Groups
+          - Sid: LogGroupManagement
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:DeleteLogGroup
+              - logs:DescribeLogGroups
+              - logs:PutRetentionPolicy
+              - logs:DeleteRetentionPolicy
+              - logs:TagLogGroup
+              - logs:UntagLogGroup
+              - logs:ListTagsLogGroup
+              - logs:TagResource
+              - logs:UntagResource
+              - logs:ListTagsForResource
+            Resource: "*"
+          # Allow the creation of IAM groups. For creating IAM group.
+          - Sid: IAMGroupManagement
+            Effect: Allow
+            Action:
+              - iam:CreateGroup
+              - iam:DeleteGroup
+              - iam:GetGroup
+              - iam:UpdateGroup
+              - iam:ListGroups
+              - iam:AttachGroupPolicy
+              - iam:DetachGroupPolicy
+              - iam:PutGroupPolicy
+              - iam:DeleteGroupPolicy
+              - iam:GetGroupPolicy
+              - iam:ListGroupPolicies
+              - iam:ListAttachedGroupPolicies
+            Resource: "*"
+          # Allow access to CDK assets bucket for Lambda deployments
+          - Sid: CDKAssetsAccess
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub "arn:aws:s3:::cdk-${Qualifier}-assets-${AWS::AccountId}-*/*"
+          # Allow management of S3 buckets for application storage
+          - Sid: S3BucketManagement
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource: "*"
+          # Allow management of Lambda functions
+          - Sid: LambdaManagement
+            Effect: Allow
+            Action:
+              - lambda:*
+            Resource: "*"
+          # Allow management of HTTP API Gateways (API Gateway v2)
+          - Sid: APIGatewayV2Management
+            Effect: Allow
+            Action:
+              - apigateway:*
+            Resource: "*"
+          # Allow management of Cognito User Pools
+          - Sid: CognitoManagement
+            Effect: Allow
+            Action:
+              - cognito-idp:*
+            Resource: "*"
+          # Allow management of Secrets Manager secrets
+          - Sid: SecretsManagerManagement
+            Effect: Allow
+            Action:
+              - secretsmanager:*
+            Resource: "*"
+          # Allow management of Route53 hosted zones and records
+          - Sid: Route53Management
+            Effect: Allow
+            Action:
+              - route53:*
+            Resource: "*"
+          # Allow management of ACM certificates
+          - Sid: CertificateManagerManagement
+            Effect: Allow
+            Action:
+              - acm:*
+            Resource: "*"
+          # Allow management of CloudFront distributions
+          - Sid: CloudFrontManagement
+            Effect: Allow
+            Action:
+              - cloudfront:*
+            Resource: "*"
+          # Allow management of SNS topics (for Textract completion notifications)
+          - Sid: SNSManagement
+            Effect: Allow
+            Action:
+              - sns:*
+            Resource: "*"
+          # Allow management of SQS queues
+          - Sid: SQSManagement
+            Effect: Allow
+            Action:
+              - sqs:*
+            Resource: "*"
+          # Allow management of DynamoDB tables (including global tables)
+          - Sid: DynamoDBManagement
+            Effect: Allow
+            Action:
+              - dynamodb:*
+            Resource: "*"
+          # Allow management of Application Auto Scaling (for DynamoDB on-demand with max throughput)
+          - Sid: ApplicationAutoScalingManagement
+            Effect: Allow
+            Action:
+              - application-autoscaling:*
+            Resource: "*"
+          - Sid: DynamoDBReplicationServiceLinkedRole
+            Effect: Allow
+            Action:
+              - iam:CreateServiceLinkedRole
+              - iam:PutRolePolicy
+            Resource: "arn:aws:iam::*:role/aws-service-role/replication.dynamodb.amazonaws.com/*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName: replication.dynamodb.amazonaws.com
+          - Sid: ApplicationAutoScalingServiceLinkedRole
+            Effect: Allow
+            Action:
+              - iam:CreateServiceLinkedRole
+            Resource: "arn:aws:iam::*:role/aws-service-role/dynamodb.application-autoscaling.amazonaws.com/*"
+            Condition:
+              StringEquals:
+                iam:AWSServiceName: dynamodb.application-autoscaling.amazonaws.com
+          # Allow IAM role management for CDK-created resources (e.g., Lambda execution roles)
+          # Roles must have the permission boundary attached for security
+          - Sid: IAMRoleManagement
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - iam:UpdateRole
+              - iam:UpdateAssumeRolePolicy
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:ListRoleTags
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:GetRolePolicy
+              - iam:ListRolePolicies
+              - iam:ListAttachedRolePolicies
+              - iam:PassRole
+              - iam:PutRolePermissionsBoundary
+            Resource: "*"
+          # Allow the creation of IAM users. For creating users.
+          - Sid: IAMUserManagement
+            Effect: Allow
+            Action:
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:GetUser
+              - iam:UpdateUser
+              - iam:ListUsers
+              - iam:TagUser
+              - iam:UntagUser
+              - iam:AddUserToGroup
+              - iam:RemoveUserFromGroup
+              - iam:ListGroupsForUser
+            Resource: "*"
+  # The CDK operations with a permission boundary, to prevent escalation of privileges
+  PermissionBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${Qualifier}-permissions-boundary"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Allow all actions by default
+          - Sid: AllowAll
+            Effect: Allow
+            Action: "*"
+            Resource: "*"
+          # Deny creating/updating roles without this permission boundary
+          - Sid: DenyCreatingRolesWithoutBoundary
+            Effect: Deny
+            Action:
+              - iam:CreateRole
+              - iam:PutRolePermissionsBoundary
+            Resource: "*"
+            Condition:
+              StringNotEquals:
+                iam:PermissionsBoundary: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${Qualifier}-permissions-boundary"
+          # Deny modifying the permission boundary policy itself
+          - Sid: DenyModifyingBoundaryPolicy
+            Effect: Deny
+            Action:
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicy
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${Qualifier}-permissions-boundary"
+          # Deny removing permission boundaries from any role/user
+          - Sid: DenyRemovingBoundary
+            Effect: Deny
+            Action:
+              - iam:DeleteUserPermissionsBoundary
+              - iam:DeleteRolePermissionsBoundary
+            Resource: "*"
+  # Main secret for storing sensitive configuration, replicated to secondary regions. The content
+  # of this secret usually is setup by hand.
+  MainSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${Qualifier}/main-secret"
+      Description: Main secret for the project
+      SecretString: "{}"
+      ReplicaRegions:
+        - Region: !Select [0, !Ref SecondaryRegions]
+  # GitHub OIDC provider for GitHub Actions authentication
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+  # IAM role for GitHub Actions CI to deploy CDK stacks
+  CIDeployerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Qualifier}-ci-deployer"
+      ManagedPolicyArns:
+        - !Ref DeployerPolicy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: repo:basewarphq/bstern:*
+Outputs:
+  DeployerPolicyArn:
+    Value: !Ref DeployerPolicy
+  DeployerGroupName:
+    Value: !Ref DeployerGroup
+  DeployerGroupArn:
+    Value: !GetAtt DeployerGroup.Arn
+  DevDeployerGroupName:
+    Value: !Ref DevDeployerGroup
+  DevDeployerGroupArn:
+    Value: !GetAtt DevDeployerGroup.Arn
+  DeveloperAdminGroupName:
+    Value: !Ref DeveloperAdminGroup
+  DeveloperAdminGroupArn:
+    Value: !GetAtt DeveloperAdminGroup.Arn
+  ExecutionPolicyArn:
+    Value: !Ref ExecutionPolicy
+  PermissionBoundaryName:
+    Value: !Sub "${Qualifier}-permissions-boundary"
+  PermissionBoundaryArn:
+    Value: !Ref PermissionBoundary
+  MainSecretArn:
+    Value: !Ref MainSecret
+  GitHubOIDCProviderArn:
+    Value: !Ref GitHubOIDCProvider
+  CIDeployerRoleArn:
+    Value: !GetAtt CIDeployerRole.Arn
