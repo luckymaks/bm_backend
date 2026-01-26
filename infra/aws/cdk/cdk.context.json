@@ -1,11 +1,12 @@
 {
   "kn-primary-region": "eu-central-1",
+  "kn-secondary-regions": ["us-east-1"],
   "cli-telemetry": false,
   "kn-deployments": ["Dev", "DevAdmin", "Prod", "Stag"],
   "kn-qualifier": "kndr",
   "kn-base-domain-name": "kndr.best-moms.com",
   "kn-region-ident-eu-central-1": "De",
-  "kn-region-ident-ap-southeast-1": "Si",
+  "kn-region-ident-us-east-1": "Us",
   "acknowledged-issue-numbers": [34892],
   "@aws-cdk/core:permissionsBoundary": {
     "name": "kndr-permissions-boundary"

@@ -12,7 +12,7 @@ import (
 // This context is passed by _cdk-common.sh during deploy/diff operations.
 // During bootstrap (run by admins), this context is not set and returns nil.
 func DeployerGroups(scope constructs.Construct) []string {
-	val := scope.Node().TryGetContext(jsii.String("kndr-dev-deployers"))
+	val := scope.Node().TryGetContext(jsii.String("kn-deployer-groups"))
 	if val == nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func AllowedDeployments(scope constructs.Construct) []string {
 		return nil
 	}
 	
-	isFull := HasDeployerGroup(scope, "bstr-deployers")
+	isFull := HasDeployerGroup(scope, "kndr-deployers")
 	if isFull {
 		return all
 	}

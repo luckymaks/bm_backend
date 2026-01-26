@@ -10,5 +10,12 @@ if [[ "${usage_hotswap:-false}" == "true" ]]; then
 	hotswap_flag="--hotswap"
 fi
 
+outputs_file=$(mktemp)
+trap 'rm -f "$outputs_file"' EXIT
+
 cdk deploy "${cdk_common_args[@]}" \
-	--require-approval "never" $hotswap_flag "${qualifier}*Shared" "${qualifier}*${deployment_ident}"
+	--require-approval "never" --outputs-file "$outputs_file" $hotswap_flag "${qualifier}*Shared" "${qualifier}*${deployment_ident}"
+
+echo ""
+echo "=== Stack Outputs ==="
+cat "$outputs_file"

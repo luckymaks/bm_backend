@@ -118,6 +118,32 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 	if props.HostedZone != nil && props.Certificate != nil {
 		customDomainName := strcase.ToKebab(*props.DeploymentIdent) + "." + *props.HostedZone.ZoneName()
 		
+		domainName := awsapigatewayv2.NewDomainName(scope, jsii.String("DomainName"),
+			&awsapigatewayv2.DomainNameProps{
+				DomainName:  jsii.String(customDomainName),
+				Certificate: props.Certificate,
+			})
+		
+		awsapigatewayv2.NewApiMapping(scope, jsii.String("ApiMapping"),
+			&awsapigatewayv2.ApiMappingProps{
+				Api:        con.httpAPI,
+				DomainName: domainName,
+			})
+		
+		awsroute53.NewCfnRecordSet(scope, jsii.String("LatencyRecord"),
+			&awsroute53.CfnRecordSetProps{
+				Name:         jsii.String(customDomainName),
+				Type:         jsii.String("A"),
+				HostedZoneId: props.HostedZone.HostedZoneId(),
+				SetIdentifier: stack.Region(),
+				Region:        stack.Region(),
+				AliasTarget: &awsroute53.CfnRecordSet_AliasTargetProperty{
+					DnsName:              domainName.RegionalDomainName(),
+					HostedZoneId:         domainName.RegionalHostedZoneId(),
+					EvaluateTargetHealth: jsii.Bool(true),
+				},
+			})
+		
 		awscdk.NewCfnOutput(scope, jsii.String("ApiEndpoint"), &awscdk.CfnOutputProps{
 			Value:       jsii.String("https://" + customDomainName),
 			Description: jsii.String("The API custom domain URL"),

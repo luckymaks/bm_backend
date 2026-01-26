@@ -1,6 +1,7 @@
 package awsdynamo
 
 import (
+	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
@@ -23,24 +24,12 @@ type dynamo struct {
 }
 
 func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
-	scope, con := constructs.NewConstruct(parent, jsii.String("Dynamo")), &dynamo{}
+	scope, con := createScope(parent, "Dynamo"), &dynamo{}
 	qual := cdkutil.QualifierFromContext(scope)
-
+	
 	con.tableName = jsii.Sprintf("%s-%s-main-table", qual, strcase.ToKebab(*props.DeploymentIdent))
-
+	
 	if cdkutil.IsPrimaryRegion(scope) {
-		var replicas *[]*awsdynamodb.ReplicaTableProps
-		secondaryRegions := cdkutil.SecondaryRegions(scope)
-		if len(secondaryRegions) > 0 {
-			replicaList := make([]*awsdynamodb.ReplicaTableProps, 0, len(secondaryRegions))
-			for _, region := range secondaryRegions {
-				replicaList = append(replicaList, &awsdynamodb.ReplicaTableProps{
-					Region: jsii.String(region),
-				})
-			}
-			replicas = &replicaList
-		}
-
 		con.table = awsdynamodb.NewTableV2(scope, jsii.String("MainTable"), &awsdynamodb.TablePropsV2{
 			TableName: con.tableName,
 			PartitionKey: &awsdynamodb.Attribute{
@@ -51,13 +40,25 @@ func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
 				Name: jsii.String("sk"),
 				Type: awsdynamodb.AttributeType_STRING,
 			},
-			Billing:  awsdynamodb.Billing_OnDemand(nil),
-			Replicas: replicas,
+			Billing:            getBillingOnDemand(),
+			RemovalPolicy:      awscdk.RemovalPolicy_DESTROY,
+			DeletionProtection: jsii.Bool(false),
+			PointInTimeRecoverySpecification: &awsdynamodb.PointInTimeRecoverySpecification{
+				PointInTimeRecoveryEnabled: jsii.Bool(true),
+				RecoveryPeriodInDays:       jsii.Number(3),
+			},
+			GlobalSecondaryIndexes: &[]*awsdynamodb.GlobalSecondaryIndexPropsV2{
+				{
+					IndexName:    jsii.String("gsi1"),
+					PartitionKey: &awsdynamodb.Attribute{Name: jsii.String("gsi1pk"), Type: awsdynamodb.AttributeType_STRING},
+					SortKey:      &awsdynamodb.Attribute{Name: jsii.String("gsi1sk"), Type: awsdynamodb.AttributeType_STRING},
+				},
+			},
 		})
 	} else {
 		con.table = awsdynamodb.TableV2_FromTableName(scope, jsii.String("MainTable"), con.tableName)
 	}
-
+	
 	return con
 }
 
