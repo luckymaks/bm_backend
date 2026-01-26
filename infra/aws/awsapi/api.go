@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2integrations"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscertificatemanager"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsroute53"
@@ -21,6 +22,8 @@ type APIProps struct {
 	DeploymentIdent *string
 	HostedZone      awsroute53.IHostedZone             // optional: nil if no custom domain
 	Certificate     awscertificatemanager.ICertificate // optional: nil if no custom domain
+	MainTable       awsdynamodb.ITableV2
+	MainTableName   *string
 }
 
 type Api interface {
@@ -57,6 +60,7 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 			Environment: &map[string]*string{
 				"AWS_LAMBDA_EXEC_WRAPPER": jsii.String("/opt/bootstrap"),
 				"AWS_LWA_PORT":            jsii.String("12001"),
+				"MAIN_TABLE_NAME":         props.MainTableName,
 			},
 			Bundling: &awslambdago.BundlingOptions{},
 		})
@@ -108,6 +112,8 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 		AuthorizationScopes: &[]*string{},
 		Authorizer:          awsapigatewayv2.NewHttpNoneAuthorizer(),
 	})
+	
+	props.MainTable.GrantReadWriteData(con.function)
 	
 	if props.HostedZone != nil && props.Certificate != nil {
 		customDomainName := strcase.ToKebab(*props.DeploymentIdent) + "." + *props.HostedZone.ZoneName()
