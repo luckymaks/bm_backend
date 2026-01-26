@@ -4,64 +4,128 @@ import (
 	"fmt"
 	
 	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2integrations"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awscertificatemanager"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
-	"github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsroute53"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
+	"github.com/iancoleman/strcase"
+	"github.com/luckymaks/bm_backend/infra/aws/cdk/cdkutil"
 )
 
-type ApiProps struct {
+type APIProps struct {
 	DeploymentIdent *string
+	HostedZone      awsroute53.IHostedZone             // optional: nil if no custom domain
+	Certificate     awscertificatemanager.ICertificate // optional: nil if no custom domain
 }
 
 type Api interface {
-	Function() awslambda.IFunction
+	HttpApi() awsapigatewayv2.HttpApi
 }
 
 type api struct {
-	function awslambda.IFunction
+	logGroup awslogs.ILogGroup
+	function awslambdago.GoFunction
+	httpAPI  awsapigatewayv2.HttpApi
 }
 
-func NewApi(scope constructs.Construct, props ApiProps) Api {
-	construct := constructs.NewConstruct(scope, jsii.String("Api"))
+func NewApi(parent constructs.Construct, props APIProps) Api {
+	scope, con := constructs.NewConstruct(parent, jsii.String("Api")), &api{}
+	qual, stack := cdkutil.QualifierFromContext(scope), awscdk.Stack_Of(scope)
 	
-	functionName := jsii.String(fmt.Sprintf("kndr-%s-httpapi", *props.DeploymentIdent))
-	
-	logGroup := awslogs.NewLogGroup(construct, jsii.String("LogGroup"), &awslogs.LogGroupProps{
-		LogGroupName:  jsii.String(fmt.Sprintf("/aws/lambda/%s", *functionName)),
-		Retention:     awslogs.RetentionDays_TWO_WEEKS,
+	con.logGroup = awslogs.NewLogGroup(scope, jsii.String("ApiLogGroup"), &awslogs.LogGroupProps{
 		RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
+		Retention:     awslogs.RetentionDays_TWO_WEEKS,
 	})
 	
-	layerArn := fmt.Sprintf("arn:aws:lambda:%s:753240598075:layer:LambdaAdapterLayerArm64:24",
-		*awscdk.Stack_Of(construct).Region())
+	adapterLayerArn := fmt.Sprintf("arn:aws:lambda:%s:753240598075:layer:LambdaAdapterLayerArm64:24",
+		*stack.Region())
 	
-	webAdapterLayer := awslambda.LayerVersion_FromLayerVersionArn(
-		construct,
-		jsii.String("WebAdapterLayer"),
-		jsii.String(layerArn),
+	con.function = awslambdago.NewGoFunction(scope, jsii.String("ApiFunction"),
+		&awslambdago.GoFunctionProps{
+			Entry:        jsii.String("../../../backend/lambda/httpapi"),
+			LogGroup:     con.logGroup,
+			Architecture: awslambda.Architecture_ARM_64(),
+			Layers: &[]awslambda.ILayerVersion{
+				awslambda.LayerVersion_FromLayerVersionArn(
+					scope, jsii.String("LambdaAdapterLayer"), jsii.String(adapterLayerArn)),
+			},
+			Environment: &map[string]*string{
+				"AWS_LAMBDA_EXEC_WRAPPER": jsii.String("/opt/bootstrap"),
+				"AWS_LWA_PORT":            jsii.String("12001"),
+			},
+			Bundling: &awslambdago.BundlingOptions{},
+		})
+	
+	lambdaIntegration := awsapigatewayv2integrations.NewHttpLambdaIntegration(
+		jsii.String("LambdaIntegration"),
+		con.function,
+		&awsapigatewayv2integrations.HttpLambdaIntegrationProps{},
 	)
 	
-	fn := awscdklambdagoalpha.NewGoFunction(construct, jsii.String("Function"), &awscdklambdagoalpha.GoFunctionProps{
-		FunctionName: functionName,
-		Entry:        jsii.String("../../../backend/lambda/httpapi"),
-		Architecture: awslambda.Architecture_ARM_64(),
-		MemorySize:   jsii.Number(512),
-		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		LogGroup:     logGroup,
-		Layers:       &[]awslambda.ILayerVersion{webAdapterLayer},
-		Environment: &map[string]*string{
-			"AWS_LAMBDA_EXEC_WRAPPER": jsii.String("/opt/bootstrap"),
-			"AWS_LWA_PORT":            jsii.String("12001"),
-		},
+	con.httpAPI = awsapigatewayv2.NewHttpApi(scope, jsii.String("HttpApi"),
+		&awsapigatewayv2.HttpApiProps{
+			ApiName: jsii.Sprintf("%s-%s-httpapi",
+				qual,
+				strcase.ToKebab(*props.DeploymentIdent)),
+			DefaultIntegration:         lambdaIntegration,
+			DefaultAuthorizationScopes: jsii.Strings("main/admin"),
+			CorsPreflight: &awsapigatewayv2.CorsPreflightOptions{
+				AllowOrigins: jsii.Strings(
+					"http://localhost:5173",
+					"https://*",
+				),
+				AllowMethods: &[]awsapigatewayv2.CorsHttpMethod{
+					awsapigatewayv2.CorsHttpMethod_GET,
+					awsapigatewayv2.CorsHttpMethod_POST,
+					awsapigatewayv2.CorsHttpMethod_PUT,
+					awsapigatewayv2.CorsHttpMethod_DELETE,
+					awsapigatewayv2.CorsHttpMethod_OPTIONS,
+				},
+				AllowHeaders: jsii.Strings(
+					"Content-Type",
+					"Authorization",
+					"Connect-Protocol-Version",
+				),
+				AllowCredentials: jsii.Bool(true),
+				ExposeHeaders: jsii.Strings(
+					"Grpc-Status",
+					"Grpc-Message",
+					"Grpc-Status-Details-Bin",
+				),
+				MaxAge: awscdk.Duration_Seconds(jsii.Number(7200)),
+			},
+		})
+	
+	con.httpAPI.AddRoutes(&awsapigatewayv2.AddRoutesOptions{
+		Path:                jsii.String("/{proxy+}"),
+		Methods:             &[]awsapigatewayv2.HttpMethod{awsapigatewayv2.HttpMethod_OPTIONS},
+		Integration:         lambdaIntegration,
+		AuthorizationScopes: &[]*string{},
+		Authorizer:          awsapigatewayv2.NewHttpNoneAuthorizer(),
 	})
 	
-	return &api{
-		function: fn,
+	if props.HostedZone != nil && props.Certificate != nil {
+		customDomainName := strcase.ToKebab(*props.DeploymentIdent) + "." + *props.HostedZone.ZoneName()
+		
+		awscdk.NewCfnOutput(scope, jsii.String("ApiEndpoint"), &awscdk.CfnOutputProps{
+			Value:       jsii.String("https://" + customDomainName),
+			Description: jsii.String("The API custom domain URL"),
+		})
+	} else {
+		awscdk.NewCfnOutput(scope, jsii.String("ApiEndpoint"), &awscdk.CfnOutputProps{
+			Value:       con.httpAPI.Url(),
+			Description: jsii.String("The API Gateway URL"),
+		})
 	}
+	
+	return con
 }
 
-func (a *api) Function() awslambda.IFunction {
-	return a.function
+func (con api) HttpApi() awsapigatewayv2.HttpApi {
+	return con.httpAPI
 }

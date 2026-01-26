@@ -3,7 +3,7 @@
   "cli-telemetry": false,
   "kn-deployments": ["Dev", "DevAdmin", "Prod", "Stag"],
   "kn-qualifier": "kndr",
-  "kn-base-domain-name": "",
+  "kn-base-domain-name": "kndr.best-moms.com",
   "kn-region-ident-eu-central-1": "De",
   "kn-region-ident-ap-southeast-1": "Si",
   "acknowledged-issue-numbers": [34892],

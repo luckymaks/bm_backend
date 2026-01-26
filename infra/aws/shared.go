@@ -1,52 +1,55 @@
 package aws
 
 import (
-	"github.com/aws/aws-cdk-go/awscdk/v2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awscertificatemanager"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awscognito"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsroute53"
+	"github.com/aws/constructs-go/constructs/v10"
+	"github.com/luckymaks/bm_backend/infra/aws/awscertificate"
+	"github.com/luckymaks/bm_backend/infra/aws/awsdns"
+	"github.com/luckymaks/bm_backend/infra/aws/awssecret"
+	"github.com/luckymaks/bm_backend/infra/aws/cdk/cdkutil"
 )
 
-type SharedProps struct{}
+type shared struct {
+	dns         awsdns.DNS
+	certificate awscertificate.Certificate
+	secret      awssecret.Secret
+}
 
 type Shared interface {
-	DNS() DNS
-	Certificate() Certificate
-	Identity() awscognito.UserPool
-	CrewIdentity() awscognito.UserPool
+	DNS() awsdns.DNS
+	Certificate() awscertificate.Certificate
+	Secret() awssecret.Secret
 }
 
-type DNS interface {
-	HostedZone() awsroute53.IHostedZone
+type SharedProps struct {
+	EnableCustomDomain bool
 }
 
-type Certificate interface {
-	WildcardCertificate() awscertificatemanager.ICertificate
+func NewShared(scope constructs.Construct, props SharedProps) Shared {
+	con := &shared{}
+	
+	if props.EnableCustomDomain {
+		con.dns = awsdns.New(scope, awsdns.DNSProps{
+			ZoneDomainName: cdkutil.BaseDomainName(scope),
+		})
+		
+		con.certificate = awscertificate.New(scope, awscertificate.CertificateProps{
+			HostedZone: con.dns.HostedZone(),
+		})
+	}
+	
+	con.secret = awssecret.New(scope, awssecret.SecretProps{})
+	
+	return con
 }
 
-type shared struct {
-	dns          DNS
-	certificate  Certificate
-	identity     awscognito.UserPool
-	crewIdentity awscognito.UserPool
-}
-
-func NewShared(stack awscdk.Stack, props SharedProps) Shared {
-	return &shared{}
-}
-
-func (s *shared) DNS() DNS {
+func (s *shared) DNS() awsdns.DNS {
 	return s.dns
 }
 
-func (s *shared) Certificate() Certificate {
+func (s *shared) Certificate() awscertificate.Certificate {
 	return s.certificate
 }
 
-func (s *shared) Identity() awscognito.UserPool {
-	return s.identity
-}
-
-func (s *shared) CrewIdentity() awscognito.UserPool {
-	return s.crewIdentity
+func (s *shared) Secret() awssecret.Secret {
+	return s.secret
 }
