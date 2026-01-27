@@ -30,6 +30,8 @@ func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
 	con.tableName = jsii.Sprintf("%s-%s-main-table", qual, strcase.ToKebab(*props.DeploymentIdent))
 	
 	if cdkutil.IsPrimaryRegion(scope) {
+		replicas := buildReplicaConfigs(scope)
+		
 		con.table = awsdynamodb.NewTableV2(scope, jsii.String("MainTable"), &awsdynamodb.TablePropsV2{
 			TableName: con.tableName,
 			PartitionKey: &awsdynamodb.Attribute{
@@ -54,6 +56,7 @@ func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
 					SortKey:      &awsdynamodb.Attribute{Name: jsii.String("gsi1sk"), Type: awsdynamodb.AttributeType_STRING},
 				},
 			},
+			Replicas: replicas,
 		})
 	} else {
 		con.table = awsdynamodb.TableV2_FromTableName(scope, jsii.String("MainTable"), con.tableName)
