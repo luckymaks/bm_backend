@@ -3,6 +3,7 @@ package awsidentity
 import (
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awscognito"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 	"github.com/luckymaks/bm_backend/infra/aws/awsparams"
@@ -18,6 +19,7 @@ type Identity interface {
 	UserPoolID() *string
 	MainResourceServer() awscognito.IUserPoolResourceServer
 	CognitoDomain() *string
+	AdminClientID() *string
 }
 
 type identity struct {
@@ -25,6 +27,7 @@ type identity struct {
 	userPoolID         *string
 	mainResourceServer awscognito.IUserPoolResourceServer
 	cognitoDomain      *string
+	adminClientID      *string
 }
 
 func New(parent constructs.Construct, _ IdentityProps) Identity {
@@ -33,6 +36,7 @@ func New(parent constructs.Construct, _ IdentityProps) Identity {
 	
 	if !cdkutil.IsPrimaryRegion(scope) {
 		con.userPoolID = awsparams.Lookup(scope, "LookupUserPoolID", paramsNamespace, "user-pool-id", "user-pool-id-lookup")
+		con.adminClientID = awsparams.Lookup(scope, "LookupAdminClientID", paramsNamespace, "admin-client-id", "admin-client-id-lookup")
 		
 		return con
 	}
@@ -85,8 +89,44 @@ func New(parent constructs.Construct, _ IdentityProps) Identity {
 			Scopes:     &[]awscognito.ResourceServerScope{adminScope},
 		})
 	
+	adminClient := con.userPool.AddClient(jsii.String("AdminClient"), &awscognito.UserPoolClientOptions{
+		UserPoolClientName: jsii.Sprintf("%s-admin", qual),
+		GenerateSecret:     jsii.Bool(true),
+		OAuth: &awscognito.OAuthSettings{
+			Flows: &awscognito.OAuthFlows{
+				ClientCredentials: jsii.Bool(true),
+			},
+			Scopes: &[]awscognito.OAuthScope{
+				awscognito.OAuthScope_ResourceServer(con.mainResourceServer, adminScope),
+			},
+		},
+		AuthFlows: &awscognito.AuthFlow{
+			UserSrp:           jsii.Bool(false),
+			UserPassword:      jsii.Bool(false),
+			AdminUserPassword: jsii.Bool(false),
+			Custom:            jsii.Bool(false),
+		},
+		AccessTokenValidity: awscdk.Duration_Hours(jsii.Number(24)),
+	})
+	
+	con.adminClientID = adminClient.UserPoolClientId()
+	
+	replicaRegions := make([]*awssecretsmanager.ReplicaRegion, 0)
+	for _, region := range cdkutil.SecondaryRegions(scope) {
+		replicaRegions = append(replicaRegions, &awssecretsmanager.ReplicaRegion{
+			Region: jsii.String(region),
+		})
+	}
+	
+	awssecretsmanager.NewSecret(scope, jsii.String("AdminClientSecret"), &awssecretsmanager.SecretProps{
+		SecretName:        jsii.Sprintf("%s/admin-client-secret", qual),
+		SecretStringValue: adminClient.UserPoolClientSecret(),
+		ReplicaRegions:    &replicaRegions,
+	})
+	
 	awsparams.Store(scope, "UserPoolIDParam", paramsNamespace, "user-pool-id", con.userPoolID)
 	awsparams.Store(scope, "UserPoolDomainParam", paramsNamespace, "user-pool-domain", jsii.Sprintf("%s-auth", qual))
+	awsparams.Store(scope, "AdminClientIDParam", paramsNamespace, "admin-client-id", con.adminClientID)
 	
 	return con
 }
@@ -105,4 +145,8 @@ func (i *identity) MainResourceServer() awscognito.IUserPoolResourceServer {
 
 func (i *identity) CognitoDomain() *string {
 	return i.cognitoDomain
+}
+
+func (i *identity) AdminClientID() *string {
+	return i.adminClientID
 }
