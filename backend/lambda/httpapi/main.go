@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"os"
 	"time"
-	
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/luckymaks/bm_backend/backend/internal/rpc"
 )
 
 var dynamoClient *dynamodb.Client
@@ -32,9 +33,13 @@ func main() {
 	e.GET("/health", handleHealth)
 	e.POST("/items", handleCreateItem)
 	e.GET("/items/:id", handleGetItem)
-	
+
+	server := &http.Server{
+		Addr:    ":12001",
+		Handler: rpc.WithCORS(e),
+	}
 	//nolint:errcheck
-	e.Start(":12001")
+	server.ListenAndServe()
 }
 
 func handleHello(c echo.Context) error {

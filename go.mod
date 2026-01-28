@@ -3,6 +3,7 @@ module github.com/luckymaks/bm_backend
 go 1.25.3
 
 require (
+	connectrpc.com/cors v0.1.0
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.235.1
 	github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2 v2.235.1-alpha.0
 	github.com/aws/aws-sdk-go-v2 v1.41.1
@@ -12,6 +13,8 @@ require (
 	github.com/aws/jsii-runtime-go v1.125.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/labstack/echo/v4 v4.15.0
+	github.com/rs/cors v1.11.1
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
@@ -32,10 +35,12 @@ require (
 	github.com/cdklabs/awscdk-asset-awscli-go/awscliv1/v2 v2.2.261 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv6/v2 v2.1.0 // indirect
 	github.com/cdklabs/cloud-assembly-schema-go/awscdkcloudassemblyschema/v48 v48.20.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
@@ -51,4 +56,5 @@ require (
 	golang.org/x/tools v0.39.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
