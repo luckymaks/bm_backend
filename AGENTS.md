@@ -41,3 +41,72 @@
 # AWS Development
 - Whenever you want to run AWS CLI command to debug code, use the "kndr-admin" profile.
 - Whenever you want to find log groups for the deployment, run: `mise r aws:log-groups`
+
+# Project Structure
+```
+bm_backend/
+├── backend/                    # Backend application code
+│   ├── internal/               # Internal packages (not exported)
+│   │   └── rpc/                # RPC layer and model conversions
+│   └── lambda/                 # Lambda function entry points
+│       └── httpapi/            # HTTP API Lambda (Echo framework)
+├── infra/                      # Infrastructure code
+│   └── aws/                    # AWS CDK infrastructure
+│       ├── cdk/                # CDK app entry point and utilities
+│       │   └── cdkutil/        # CDK helper utilities (context, stack, regions)
+│       ├── awsapi/             # API Gateway + Lambda construct
+│       ├── awsdynamo/          # DynamoDB table construct
+│       ├── awsdns/             # Route53 DNS construct
+│       ├── awscertificate/     # ACM certificate construct
+│       ├── awsidentity/        # Cognito identity construct
+│       ├── awslambda/          # Lambda-related constructs
+│       ├── awsparams/          # SSM parameters construct
+│       ├── awss3/              # S3 bucket construct
+│       ├── awssecret/          # Secrets Manager construct
+│       ├── deployment.go       # Per-deployment resources (API, DynamoDB)
+│       └── shared.go           # Shared resources (DNS, certs, identity)
+└── mise-tasks/                 # Mise task runner scripts
+    ├── check/                  # Code quality checks (compiles, lint, test)
+    ├── dev/                    # Development tasks (fmt, gen)
+    └── aws/                    # AWS deployment tasks (diff, deploy, destroy)
+```
+
+# Technology Stack
+- **Language**: Go 1.25.3
+- **HTTP Framework**: Echo v4 (`github.com/labstack/echo/v4`)
+- **AWS SDK**: aws-sdk-go-v2 for DynamoDB and other AWS services
+- **Infrastructure**: AWS CDK v2 (Go bindings)
+- **Database**: DynamoDB with single-table design (pk/sk pattern with GSI)
+- **Compute**: AWS Lambda with Lambda Web Adapter for Echo compatibility
+- **API Gateway**: HTTP API (API Gateway v2)
+- **Linting**: golangci-lint, buf (for protobuf), shellcheck
+- **Formatting**: gofumpt, shfmt, yamlfmt, buf format, terraform fmt
+- **Task Runner**: mise
+
+# Development Commands
+- `mise r dev:gen` - Generate code (go generate, buf generate)
+- `mise r dev:fmt` - Format all code (runs dev:gen first)
+- `mise r check:compiles` - Check if code compiles
+- `mise r check:lint` - Run all linters
+- `mise r check:test` - Run unit tests
+- `mise r 'check:*'` - Run all checks
+
+# AWS CDK Patterns
+- CDK constructs follow interface + struct pattern (e.g., `type Api interface {...}` + `type api struct {...}`)
+- Constructor naming: `NewXxx(parent constructs.Construct, props XxxProps) Xxx`
+- Use `cdkutil.QualifierFromContext(scope)` for resource naming prefixes
+- Use `cdkutil.IsPrimaryRegion(scope)` to handle primary vs secondary region logic
+- Multi-region deployment with primary/secondary stack dependencies
+- Deployment identifiers (Dev/Stag/Prod) used for resource naming
+
+# DynamoDB Patterns
+- Single-table design with `pk` (partition key) and `sk` (sort key)
+- Key pattern: `TYPE#id` (e.g., `ITEM#123`)
+- GSI1 available with `gsi1pk` and `gsi1sk` attributes
+- Table is global with multi-region replication
+
+# Lambda Patterns
+- Uses Lambda Web Adapter to run Echo as a Lambda function
+- Lambda listens on port 12001 (configured via `AWS_LWA_PORT`)
+- Environment variables passed from CDK (e.g., `MAIN_TABLE_NAME`)
+- ARM64 architecture for cost efficiency
