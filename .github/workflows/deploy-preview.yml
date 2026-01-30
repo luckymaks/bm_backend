@@ -1,0 +1,28 @@
+name: Deploy Preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+concurrency:
+  group: deploy-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+  pull-requests: write
+jobs:
+  deploy-aws:
+    runs-on: depot-ubuntu-24.04-arm
+    environment:
+      name: preview
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_DEPLOYER_ROLE_ARN }}
+          aws-region: eu-central-1
+      - uses: ./.github/actions/mise-setup
+      - name: Deploy to AWS
+        run: mise r aws:deploy Preview

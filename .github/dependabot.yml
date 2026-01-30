@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/webui"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: gomod
+    directory: "/backend"
+    schedule:
+      interval: "daily"

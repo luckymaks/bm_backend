@@ -1,0 +1,25 @@
+name: Deploy Production
+on:
+  release:
+    types: [published]
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  deploy-backend:
+    runs-on: depot-ubuntu-24.04-arm
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_DEPLOYER_ROLE_ARN }}
+          aws-region: eu-central-1
+      - uses: ./.github/actions/mise-setup
+      - run: mise r aws:deploy Prod

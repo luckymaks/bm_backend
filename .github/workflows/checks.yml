@@ -1,0 +1,16 @@
+name: Checks
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  checks:
+    runs-on: depot-ubuntu-24.04
+    environment:
+      name: preview
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: ./.github/actions/mise-setup
+      - name: Run all checks
+        run: mise r 'check:*'
