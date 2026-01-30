@@ -11,17 +11,30 @@
 
 # Model Implementation Guidelines (backend)
 - Keep `backend/internal/model` structs transport-agnostic:
-  - Create a struct for Input and Output types.
-  - Create a struct for dynamoDB type.
+  - Create a struct for Input and Output types (e.g., `CreateItemInput`, `CreateItemOutput`).
+  - Create a private struct for DynamoDB item type (e.g., `itemRecord` with `dynamodbav` tags).
+  - Use `github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue` for marshaling.
+- Model methods receive context and Input, return Output pointer and error.
+- Model struct holds `DynamoDBClient` interface (not concrete type) for testability.
 
 # Model + RPC Implementation Guidelines (backend)
 - Keep `backend/internal/model` transport-agnostic:
   - Do NOT return Connect errors from model code.
   - Return domain/sentinel errors (e.g. `model.ErrValidation`, `model.ErrNotFound`, `model.ErrAlreadyExists`) and wrap details.
-- Use `backend/internal/rpc/modelconv` as the single place for:
-  - proto request -> model input conversions `modelconv.FromProto[model.InputType](req)`
-  - model output -> proto response conversions `modelconv.ToProto(out, &bstrv1.Response{})`
-  - model error -> `connect.Error` mapping
+- Use `backend/internal/model/modelconv` as the single place for:
+  - proto request -> model input conversions: `modelconv.FromProto[model.InputType](req)`
+  - model output -> proto response conversions: `modelconv.ToProto(out, &bmv1.Response{})`
+  - model error -> `connect.Error` mapping: `modelconv.ToConnectError(err)`
+- RPC layer defines `ModelClient` interface matching model methods for mocking.
+- RPC tests use mockery-generated mocks in `internal/rpc/mocks/`.
+
+# Testing Guidelines (backend)
+- Model tests use DynamoDB Local via testcontainers:
+  - `setup_test.go` initializes shared DynamoDB container in `TestMain`.
+  - `setup(t)` creates unique table per test for isolation.
+  - Tests skip gracefully if Docker is unavailable.
+- RPC tests use mockery mocks for the model layer.
+- Run tests with: `mise r check:test`
 
 # Snapshot Testing Guidelines (backend)
 - Prefer snapshot tests where it improves reliability and reviewability:
@@ -29,6 +42,8 @@
   - Snapshot normalized persistence state.
 - Snapshots live under `snapshot/` in the package that owns the test.
 - Update snapshots by running tests with `UPDATE_SNAPSHOTS=1`.
+- Use `github.com/gkampitakis/go-snaps/snaps` for snapshots.
+- Use `github.com/olekukonko/tablewriter` for readable table snapshots.
 
 # AWS CDK Development
 - When you want to see the diff for new infrastructure to be deployed, use the `mise r aws:diff` script without arguments
@@ -47,7 +62,16 @@
 bm_backend/
 ├── backend/                    # Backend application code
 │   ├── internal/               # Internal packages (not exported)
-│   │   └── rpc/                # RPC layer and model conversions
+│   │   ├── model/              # Domain model (transport-agnostic)
+│   │   │   ├── modelconv/      # Proto ↔ model conversions
+│   │   │   └── snapshot/       # Test snapshots
+│   │   └── rpc/                # RPC layer (Connect handlers)
+│   │       ├── mocks/          # Mockery-generated mocks
+│   │       ├── rpcconfig/      # Config from environment
+│   │       └── rpchttp/        # HTTP handler with interceptors
+│   ├── proto/                  # Generated protobuf code
+│   │   ├── bm/v1/              # API messages and service
+│   │   └── buf/validate/       # Protovalidate types
 │   └── lambda/                 # Lambda function entry points
 │       └── httpapi/            # HTTP API Lambda (Echo framework)
 ├── infra/                      # Infrastructure code

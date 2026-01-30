@@ -1,0 +1,30 @@
+version: v2
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      module: buf.build/kindred-node-org/bm-backend
+      value: github.com/luckymaks/bm_backend/backend/proto
+plugins:
+  - local:
+      - go
+      - tool
+      - protoc-gen-go
+    out: proto
+    opt:
+      - paths=source_relative
+      - default_api_level=API_OPAQUE
+    include_imports: true
+  - local:
+      - go
+      - tool
+      - protoc-gen-connect-go
+    out: proto
+    opt:
+      - paths=source_relative
+      - simple
+inputs:
+  - directory: proto

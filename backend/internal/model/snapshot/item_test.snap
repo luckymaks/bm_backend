@@ -1,0 +1,11 @@
+
+[TestGetItemOutput/has_correct_struct_fields - 1]
+┌───────────┬──────────────┐
+│   FIELD   │    VALUE     │
+├───────────┼──────────────┤
+│ ID        │ test-123     │
+│ Data      │ hello world  │
+│ CreatedAt │ [NORMALIZED] │
+└───────────┴──────────────┘
+
+---

@@ -1,0 +1,8 @@
+with-expecter: true
+dir: "{{.InterfaceDir}}/mocks"
+mockname: "Mock{{.InterfaceName}}"
+outpkg: mocks
+packages:
+  github.com/luckymaks/bm_backend/backend/internal/rpc:
+    interfaces:
+      ModelClient:

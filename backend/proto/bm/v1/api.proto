@@ -1,0 +1,46 @@
+edition = "2023";
+
+package bm.v1;
+
+import "buf/validate/validate.proto";
+
+service ApiService {
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse);
+  rpc CreateItem(CreateItemRequest) returns (CreateItemResponse);
+  rpc GetItem(GetItemRequest) returns (GetItemResponse);
+}
+
+message GetHealthRequest {}
+
+message GetHealthResponse {
+  // status of the health response
+  string status = 1 [(buf.validate.field).required = true];
+  // region
+  string region = 2;
+}
+
+message CreateItemRequest {
+  // id of an item
+  string id = 1 [(buf.validate.field).required = true];
+  // data of an item
+  string data = 2 [(buf.validate.field).required = true];
+}
+
+message CreateItemResponse {
+  // id of an item
+  string id = 1 [(buf.validate.field).required = true];
+}
+
+message GetItemRequest {
+  // id of an item
+  string id = 1 [(buf.validate.field).required = true];
+}
+
+message GetItemResponse {
+  // id of an item
+  string id = 1 [(buf.validate.field).required = true];
+  // data of an item
+  string data = 2 [(buf.validate.field).required = true];
+  // date when item was created
+  string created_at = 3 [(buf.validate.field).required = true];
+}
