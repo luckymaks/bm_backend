@@ -4,7 +4,6 @@
 set -euo pipefail
 
 usage_deployment_ident="${usage_deployment_ident:-}"
-# shellcheck source=_cdk-common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_cdk-common.sh"
 
 primary_region=$(echo "$cdk_context" | jq -re '.["kn-primary-region"]')

@@ -3,7 +3,7 @@ package cdkutil
 import (
 	"slices"
 	"strings"
-	
+
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -16,12 +16,12 @@ func DeployerGroups(scope constructs.Construct) []string {
 	if val == nil {
 		return nil
 	}
-	
+
 	str, ok := val.(string)
 	if !ok || str == "" {
 		return nil
 	}
-	
+
 	return strings.Fields(str)
 }
 
@@ -38,17 +38,17 @@ func HasDeployerGroup(scope constructs.Construct, group string) bool {
 func AllowedDeployments(scope constructs.Construct) []string {
 	all := Deployments(scope)
 	groups := DeployerGroups(scope)
-	
+
 	// No group context provided (e.g., during bootstrap), skip deployment stacks
 	if groups == nil {
 		return nil
 	}
-	
+
 	isFull := HasDeployerGroup(scope, "kndr-deployers")
 	if isFull {
 		return all
 	}
-	
+
 	// Filter out Stag/Prod for non-full deployers
 	allowed := make([]string, 0, len(all))
 	for _, d := range all {
@@ -65,12 +65,12 @@ func Deployments(scope constructs.Construct) []string {
 	if val == nil {
 		panic("invalid 'kn-deployments', is it set?")
 	}
-	
+
 	slice, ok := val.([]any)
 	if !ok {
 		panic("invalid 'kn-deployments', expected array")
 	}
-	
+
 	regions := make([]string, 0, len(slice))
 	for _, v := range slice {
 		s, ok := v.(string)
@@ -79,6 +79,6 @@ func Deployments(scope constructs.Construct) []string {
 		}
 		regions = append(regions, s)
 	}
-	
+
 	return regions
 }

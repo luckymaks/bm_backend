@@ -24,12 +24,12 @@ type DNSProps struct {
 
 func New(scope constructs.Construct, props DNSProps) DNS {
 	scope, con := constructs.NewConstruct(scope, jsii.String("DNS")), &dns{}
-	
+
 	if cdkutil.IsPrimaryRegion(scope) {
 		con.hostedZone = awsroute53.NewHostedZone(scope, jsii.String("HostedZone"), &awsroute53.HostedZoneProps{
 			ZoneName: props.ZoneDomainName,
 		})
-		
+
 		awsparams.Store(scope, "HostedZoneIDParam", paramsNamespace, "hosted-zone-id", con.hostedZone.HostedZoneId())
 	} else {
 		hostedZoneID := awsparams.Lookup(scope,
@@ -40,7 +40,7 @@ func New(scope constructs.Construct, props DNSProps) DNS {
 				ZoneName:     props.ZoneDomainName,
 			})
 	}
-	
+
 	return con
 }
 

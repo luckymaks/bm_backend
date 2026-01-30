@@ -4,10 +4,6 @@ Parameters:
   Qualifier:
     Type: String
     Description: The CDK bootstrap qualifier
-  SecondaryRegions:
-    Type: CommaDelimitedList
-    Description: Comma-separated list of secondary regions for secret replication
-    Default: ""
 Resources:
   # The policy describing what the deployer calling the CDK cli is allowed to do. It should allow
   # assuming the cdk roles.

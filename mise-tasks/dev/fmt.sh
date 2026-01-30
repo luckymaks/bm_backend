@@ -11,11 +11,9 @@ go tool gofumpt -w .
 # across backend/infra.
 cd -
 shfmt -w mise-tasks/**/*.sh
-terraform fmt infra/tf
 yamlfmt .
 buf format -w
 
 # for the infra package
-cd infra/aws
-go mod tidy
+cd infra
 go tool gofumpt -w .

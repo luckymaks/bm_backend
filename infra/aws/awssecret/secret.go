@@ -20,11 +20,11 @@ type SecretProps struct{}
 func New(scope constructs.Construct, _ SecretProps) Secret {
 	scope, con := constructs.NewConstruct(scope, jsii.String("Secret")), &secret{}
 	qual := cdkutil.QualifierFromContext(scope)
-	
+
 	con.mainSecret = awssecretsmanager.Secret_FromSecretNameV2(scope,
 		jsii.String("LookupMainSecret"),
 		jsii.Sprintf("%s/main-secret", qual))
-	
+
 	return con
 }
 

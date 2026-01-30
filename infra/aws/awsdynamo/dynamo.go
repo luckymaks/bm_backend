@@ -13,10 +13,7 @@ type DynamoProps struct {
 	DeploymentIdent *string
 }
 
-type Dynamo interface {
-	Table() awsdynamodb.ITableV2
-	TableName() *string
-}
+type Dynamo = commonTableInterface
 
 type dynamo struct {
 	table     awsdynamodb.ITableV2
@@ -26,12 +23,12 @@ type dynamo struct {
 func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
 	scope, con := createScope(parent, "Dynamo"), &dynamo{}
 	qual := cdkutil.QualifierFromContext(scope)
-	
+
 	con.tableName = jsii.Sprintf("%s-%s-main-table", qual, strcase.ToKebab(*props.DeploymentIdent))
-	
+
 	if cdkutil.IsPrimaryRegion(scope) {
 		replicas := buildReplicaConfigs(scope)
-		
+
 		con.table = awsdynamodb.NewTableV2(scope, jsii.String("MainTable"), &awsdynamodb.TablePropsV2{
 			TableName: con.tableName,
 			PartitionKey: &awsdynamodb.Attribute{
@@ -61,7 +58,7 @@ func NewDynamo(parent constructs.Construct, props DynamoProps) Dynamo {
 	} else {
 		con.table = awsdynamodb.TableV2_FromTableName(scope, jsii.String("MainTable"), con.tableName)
 	}
-	
+
 	return con
 }
 

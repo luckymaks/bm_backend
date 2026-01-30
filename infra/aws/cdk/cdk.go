@@ -10,16 +10,16 @@ import (
 func main() {
 	defer jsii.Close()
 	app := awscdk.NewApp(nil)
-	
+
 	// Set to true when you have a domain configured
 	enableCustomDomain := false
-	
+
 	// First, create shared primary region stack first
 	primarySharedStack := cdkutil.NewStack(app, cdkutil.PrimaryRegion(app))
 	primary := aws.NewShared(primarySharedStack, aws.SharedProps{
 		EnableCustomDomain: enableCustomDomain,
 	})
-	
+
 	// Then, create secondary shared region stacks with dependency on primary
 	secondaries := map[string]aws.Shared{}
 	for _, region := range cdkutil.SecondaryRegions(app) {
@@ -29,11 +29,11 @@ func main() {
 		})
 		secondarySharedStack.AddDependency(primarySharedStack, jsii.String("Primary region must deploy first"))
 	}
-	
+
 	// Then, create stacks for the deployments.
 	for _, deploymentIdent := range cdkutil.AllowedDeployments(app) {
 		primaryDeploymentStack := cdkutil.NewStack(app, cdkutil.PrimaryRegion(app), deploymentIdent)
-		
+
 		deploymentProps := aws.DeploymentProps{
 			DeploymentIdent: jsii.String(deploymentIdent),
 		}
@@ -43,11 +43,11 @@ func main() {
 		}
 		aws.NewDeployment(primaryDeploymentStack, deploymentProps)
 		primaryDeploymentStack.AddDependency(primarySharedStack, jsii.String("Primary shared stack must deploy first"))
-		
+
 		// Finally, secondary region stacks for each deployment.
 		for _, region := range cdkutil.SecondaryRegions(app) {
 			secondaryDeploymentStack := cdkutil.NewStack(app, region, deploymentIdent)
-			
+
 			secondaryDeploymentProps := aws.DeploymentProps{
 				DeploymentIdent: jsii.String(deploymentIdent),
 			}
@@ -56,11 +56,11 @@ func main() {
 				secondaryDeploymentProps.Certificate = secondaries[region].Certificate().WildcardCertificate()
 			}
 			aws.NewDeployment(secondaryDeploymentStack, secondaryDeploymentProps)
-			
+
 			secondaryDeploymentStack.AddDependency(primaryDeploymentStack,
 				jsii.String("Primary region deployment must deploy first"))
 		}
 	}
-	
+
 	app.Synth(nil)
 }

@@ -130,6 +130,7 @@ func setup(t *testing.T) (context.Context, *model.Model) {
 	return sharedCtx, mdl
 }
 
+//nolint:unused // This function is intended for future use with GSI-based tests
 func setupWithGSI(t *testing.T) (context.Context, *model.Model) {
 	t.Helper()
 

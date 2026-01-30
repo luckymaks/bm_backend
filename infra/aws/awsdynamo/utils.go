@@ -28,13 +28,13 @@ func buildReplicaConfigs(scope constructs.Construct) *[]*awsdynamodb.ReplicaTabl
 	if len(secondaryRegions) == 0 {
 		return nil
 	}
-	
+
 	replicas := make([]*awsdynamodb.ReplicaTableProps, 0, len(secondaryRegions))
 	for _, region := range secondaryRegions {
 		replicas = append(replicas, &awsdynamodb.ReplicaTableProps{
 			Region: jsii.String(region),
 		})
 	}
-	
+
 	return &replicas
 }

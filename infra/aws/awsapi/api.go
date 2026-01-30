@@ -2,7 +2,7 @@ package awsapi
 
 import (
 	"fmt"
-	
+
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigatewayv2integrations"
@@ -39,15 +39,15 @@ type api struct {
 func NewApi(parent constructs.Construct, props APIProps) Api {
 	scope, con := constructs.NewConstruct(parent, jsii.String("Api")), &api{}
 	qual, stack := cdkutil.QualifierFromContext(scope), awscdk.Stack_Of(scope)
-	
+
 	con.logGroup = awslogs.NewLogGroup(scope, jsii.String("ApiLogGroup"), &awslogs.LogGroupProps{
 		RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		Retention:     awslogs.RetentionDays_TWO_WEEKS,
 	})
-	
+
 	adapterLayerArn := fmt.Sprintf("arn:aws:lambda:%s:753240598075:layer:LambdaAdapterLayerArm64:24",
 		*stack.Region())
-	
+
 	con.function = awslambdago.NewGoFunction(scope, jsii.String("ApiFunction"),
 		&awslambdago.GoFunctionProps{
 			Entry:        jsii.String("../../../backend/lambda/httpapi"),
@@ -64,13 +64,13 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 			},
 			Bundling: &awslambdago.BundlingOptions{},
 		})
-	
+
 	lambdaIntegration := awsapigatewayv2integrations.NewHttpLambdaIntegration(
 		jsii.String("LambdaIntegration"),
 		con.function,
 		&awsapigatewayv2integrations.HttpLambdaIntegrationProps{},
 	)
-	
+
 	con.httpAPI = awsapigatewayv2.NewHttpApi(scope, jsii.String("HttpApi"),
 		&awsapigatewayv2.HttpApiProps{
 			ApiName: jsii.Sprintf("%s-%s-httpapi",
@@ -104,7 +104,7 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 				MaxAge: awscdk.Duration_Seconds(jsii.Number(7200)),
 			},
 		})
-	
+
 	con.httpAPI.AddRoutes(&awsapigatewayv2.AddRoutesOptions{
 		Path:                jsii.String("/{proxy+}"),
 		Methods:             &[]awsapigatewayv2.HttpMethod{awsapigatewayv2.HttpMethod_OPTIONS},
@@ -112,29 +112,29 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 		AuthorizationScopes: &[]*string{},
 		Authorizer:          awsapigatewayv2.NewHttpNoneAuthorizer(),
 	})
-	
+
 	props.MainTable.GrantReadWriteData(con.function)
-	
+
 	if props.HostedZone != nil && props.Certificate != nil {
 		customDomainName := strcase.ToKebab(*props.DeploymentIdent) + "." + *props.HostedZone.ZoneName()
-		
+
 		domainName := awsapigatewayv2.NewDomainName(scope, jsii.String("DomainName"),
 			&awsapigatewayv2.DomainNameProps{
 				DomainName:  jsii.String(customDomainName),
 				Certificate: props.Certificate,
 			})
-		
+
 		awsapigatewayv2.NewApiMapping(scope, jsii.String("ApiMapping"),
 			&awsapigatewayv2.ApiMappingProps{
 				Api:        con.httpAPI,
 				DomainName: domainName,
 			})
-		
+
 		awsroute53.NewCfnRecordSet(scope, jsii.String("LatencyRecord"),
 			&awsroute53.CfnRecordSetProps{
-				Name:         jsii.String(customDomainName),
-				Type:         jsii.String("A"),
-				HostedZoneId: props.HostedZone.HostedZoneId(),
+				Name:          jsii.String(customDomainName),
+				Type:          jsii.String("A"),
+				HostedZoneId:  props.HostedZone.HostedZoneId(),
 				SetIdentifier: stack.Region(),
 				Region:        stack.Region(),
 				AliasTarget: &awsroute53.CfnRecordSet_AliasTargetProperty{
@@ -143,7 +143,7 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 					EvaluateTargetHealth: jsii.Bool(true),
 				},
 			})
-		
+
 		awscdk.NewCfnOutput(scope, jsii.String("ApiEndpoint"), &awscdk.CfnOutputProps{
 			Value:       jsii.String("https://" + customDomainName),
 			Description: jsii.String("The API custom domain URL"),
@@ -154,7 +154,7 @@ func NewApi(parent constructs.Construct, props APIProps) Api {
 			Description: jsii.String("The API Gateway URL"),
 		})
 	}
-	
+
 	return con
 }
 

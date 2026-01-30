@@ -33,14 +33,16 @@ type identity struct {
 func New(parent constructs.Construct, _ IdentityProps) Identity {
 	scope, con := constructs.NewConstruct(parent, jsii.String("Identity")), &identity{}
 	qual := cdkutil.QualifierFromContext(scope)
-	
+
 	if !cdkutil.IsPrimaryRegion(scope) {
-		con.userPoolID = awsparams.Lookup(scope, "LookupUserPoolID", paramsNamespace, "user-pool-id", "user-pool-id-lookup")
-		con.adminClientID = awsparams.Lookup(scope, "LookupAdminClientID", paramsNamespace, "admin-client-id", "admin-client-id-lookup")
-		
+		con.userPoolID = awsparams.Lookup(
+			scope, "LookupUserPoolID", paramsNamespace, "user-pool-id", "user-pool-id-lookup")
+		con.adminClientID = awsparams.Lookup(
+			scope, "LookupAdminClientID", paramsNamespace, "admin-client-id", "admin-client-id-lookup")
+
 		return con
 	}
-	
+
 	con.userPool = awscognito.NewUserPool(scope, jsii.String("UserPool"), &awscognito.UserPoolProps{
 		UserPoolName:      jsii.Sprintf("%s-users", qual),
 		SelfSignUpEnabled: jsii.Bool(false),
@@ -66,29 +68,29 @@ func New(parent constructs.Construct, _ IdentityProps) Identity {
 		AccountRecovery: awscognito.AccountRecovery_EMAIL_ONLY,
 		RemovalPolicy:   awscdk.RemovalPolicy_DESTROY,
 	})
-	
+
 	con.userPoolID = con.userPool.UserPoolId()
-	
+
 	userPoolDomain := con.userPool.AddDomain(jsii.String("CognitoDomain"), &awscognito.UserPoolDomainOptions{
 		CognitoDomain: &awscognito.CognitoDomainOptions{
 			DomainPrefix: jsii.Sprintf("%s-auth", qual),
 		},
 		ManagedLoginVersion: awscognito.ManagedLoginVersion_NEWER_MANAGED_LOGIN,
 	})
-	
+
 	con.cognitoDomain = userPoolDomain.BaseUrl(nil)
-	
+
 	adminScope := awscognito.NewResourceServerScope(&awscognito.ResourceServerScopeProps{
 		ScopeName:        jsii.String("admin"),
 		ScopeDescription: jsii.String("Administrative access"),
 	})
-	
+
 	con.mainResourceServer = con.userPool.AddResourceServer(jsii.String("MainResourceServer"),
 		&awscognito.UserPoolResourceServerOptions{
 			Identifier: jsii.String("main"),
 			Scopes:     &[]awscognito.ResourceServerScope{adminScope},
 		})
-	
+
 	adminClient := con.userPool.AddClient(jsii.String("AdminClient"), &awscognito.UserPoolClientOptions{
 		UserPoolClientName: jsii.Sprintf("%s-admin", qual),
 		GenerateSecret:     jsii.Bool(true),
@@ -108,26 +110,26 @@ func New(parent constructs.Construct, _ IdentityProps) Identity {
 		},
 		AccessTokenValidity: awscdk.Duration_Hours(jsii.Number(24)),
 	})
-	
+
 	con.adminClientID = adminClient.UserPoolClientId()
-	
+
 	replicaRegions := make([]*awssecretsmanager.ReplicaRegion, 0)
 	for _, region := range cdkutil.SecondaryRegions(scope) {
 		replicaRegions = append(replicaRegions, &awssecretsmanager.ReplicaRegion{
 			Region: jsii.String(region),
 		})
 	}
-	
+
 	awssecretsmanager.NewSecret(scope, jsii.String("AdminClientSecret"), &awssecretsmanager.SecretProps{
 		SecretName:        jsii.Sprintf("%s/admin-client-secret", qual),
 		SecretStringValue: adminClient.UserPoolClientSecret(),
 		ReplicaRegions:    &replicaRegions,
 	})
-	
+
 	awsparams.Store(scope, "UserPoolIDParam", paramsNamespace, "user-pool-id", con.userPoolID)
 	awsparams.Store(scope, "UserPoolDomainParam", paramsNamespace, "user-pool-domain", jsii.Sprintf("%s-auth", qual))
 	awsparams.Store(scope, "AdminClientIDParam", paramsNamespace, "admin-client-id", con.adminClientID)
-	
+
 	return con
 }
 

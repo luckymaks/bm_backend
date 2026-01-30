@@ -29,20 +29,20 @@ type SharedProps struct {
 
 func NewShared(scope constructs.Construct, props SharedProps) Shared {
 	con := &shared{}
-	
+
 	if props.EnableCustomDomain {
 		con.dns = awsdns.New(scope, awsdns.DNSProps{
 			ZoneDomainName: cdkutil.BaseDomainName(scope),
 		})
-		
+
 		con.certificate = awscertificate.New(scope, awscertificate.CertificateProps{
 			HostedZone: con.dns.HostedZone(),
 		})
 	}
-	
+
 	con.secret = awssecret.New(scope, awssecret.SecretProps{})
 	con.identity = awsidentity.New(scope, awsidentity.IdentityProps{})
-	
+
 	return con
 }
 

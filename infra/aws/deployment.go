@@ -11,7 +11,7 @@ import (
 
 type DeploymentProps struct {
 	DeploymentIdent *string
-	HostedZone      awsroute53.IHostedZone      // optional: nil if no custom domain
+	HostedZone      awsroute53.IHostedZone             // optional: nil if no custom domain
 	Certificate     awscertificatemanager.ICertificate // optional: nil if no custom domain
 	Identity        awscognito.UserPool
 	CrewIdentity    awscognito.UserPool
@@ -37,7 +37,7 @@ func NewDeployment(stack awscdk.Stack, props DeploymentProps) Deployment {
 		MainTable:       dynamo.Table(),
 		MainTableName:   dynamo.TableName(),
 	})
-	
+
 	return &deployment{
 		api: api,
 	}
